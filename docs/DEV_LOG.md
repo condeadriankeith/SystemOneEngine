@@ -4,6 +4,25 @@ All changes, additions, edits, architectural decisions, and removals in this rep
 
 ---
 
+## Log Entry: 2026-09-21 — Production Release & GitHub Publication (COMPLETED)
+
+### 1. Repository Cleanliness & Git Configuration
+- **Action:** Audited `.gitignore` to ensure root `/models/` is ignored without suppressing `src/system_one_engine/models/` source files.
+- **Staging & Commit:** Staged 54 files (complete source code, tests, docs, scripts, and Kaggle training notebook) with semantic commit:
+  - `feat: initial release of System One & Two Engine with INT8 ONNX and Ollama steering`
+- **Remote Configuration:** Configured remote `origin` pointing to `https://github.com/condeadriankeith/SystemOneEngine.git` with primary branch `main`.
+
+### 2. Upstream Deployment & GitHub Metadata Publication
+- **Action:** Executed `git push -u origin main` with zero errors.
+- **Metadata Update via GitHub REST API:**
+  - Authenticated via GitHub token from Git Credential Manager.
+  - Set repository description:
+    `High-performance, calibrated non-autoregressive decision engine (<4ms on CPU) guiding local LLM deliberation (System 1 + System 2).`
+  - Enabled topics: `['ai', 'calibration', 'decision-engine', 'fastapi', 'local-llm', 'onnx', 'qwen', 'system-one', 'system-two']`.
+  - Configured repository features (Issues, Projects, Wiki).
+
+---
+
 ## Log Entry: 2026-09-20 — Phase 8: System Two Generative Engine & Local LLM Integration (COMPLETED)
 
 ### 1. Dual-Process Architecture: System 1 Decision Reflex + System 2 Local LLM
