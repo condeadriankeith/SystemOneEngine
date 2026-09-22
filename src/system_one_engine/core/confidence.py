@@ -5,7 +5,13 @@ Implements mathematically grounded metrics for:
 - Score Confidence: Mean Absolute Deviation (MAD) from modal index relative to uniform MAD.
 - Boolean Confidence: Certainty divergence from maximal ambiguity (|P - 0.5| * 2).
 - Expected Score: Probability-weighted continuous scalar across ordinal ladder levels.
+- Entropy Confidence: Shannon entropy-based confidence (adapted from laya-mlx, Apache-2.0).
+  1 - H(p)/log(k), where H(p) = -sum(p * log(p)). Strictly more informative than peak
+  probability for high-cardinality choice distributions because it considers the full
+  probability mass rather than just the leading option.
 """
+
+import math
 
 from typing import Sequence
 
@@ -152,3 +158,56 @@ def compute_boolean_confidence(probability: float) -> float:
     """
     clamped_p = max(0.0, min(1.0, float(probability)))
     return float(abs(clamped_p - 0.5) * 2.0)
+
+
+def compute_entropy_confidence(
+    probabilities: Sequence[float] | dict[str, float],
+) -> float:
+    """Compute Shannon-entropy-based confidence over a discrete distribution.
+
+    Adapted from laya-mlx (Apache-2.0, mizorewww/laya-mlx).
+
+    Formula:
+        H(p) = -sum_{i} p_i * log(p_i)   (nats, with convention 0*log(0)=0)
+        Confidence = 1 - H(p) / log(k)
+
+    Interpretation:
+        - Uniform distribution (maximum uncertainty): H = log(k)  →  Confidence = 0.0
+        - One-hot certainty: H = 0                               →  Confidence = 1.0
+
+    Why prefer this over ``compute_choice_confidence``?
+        The peak-probability formula ``(max_p - 1/n)/(1-1/n)`` is sensitive only
+        to the leading option. Entropy considers the *full* distribution, making it
+        strictly more informative for high-cardinality distributions where probability
+        mass may be spread across several plausible candidates.
+
+    Args:
+        probabilities: Sequence or dict of probabilities (must sum to approximately 1.0).
+
+    Returns:
+        float: Normalized confidence in [0.0, 1.0].
+    """
+    if isinstance(probabilities, dict):
+        prob_values = list(probabilities.values())
+    else:
+        prob_values = list(probabilities)
+
+    k = len(prob_values)
+    if k <= 1:
+        return 1.0
+
+    # Normalize defensively (handles slight floating-point drift)
+    total = sum(prob_values)
+    if total <= 0.0:
+        return 0.0
+    normalized = [p / total for p in prob_values]
+
+    # Shannon entropy in nats; 0*log(0) = 0 by convention
+    entropy = -sum(p * math.log(p) for p in normalized if p > 0.0)
+    log_k = math.log(k)
+
+    if log_k <= 0.0:
+        return 1.0
+
+    confidence = 1.0 - entropy / log_k
+    return float(max(0.0, min(1.0, confidence)))

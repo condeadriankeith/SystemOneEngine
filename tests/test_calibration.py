@@ -2,7 +2,14 @@
 
 import numpy as np
 import pytest
-from system_one_engine.core.calibration import TemperatureScaler, compute_ece
+from system_one_engine.core.calibration import (
+    TEMP_MAX,
+    TEMP_MIN,
+    TemperatureScaler,
+    clamp_temperature,
+    compute_ece,
+    temp_bucket,
+)
 
 
 def test_compute_ece_perfect_calibration():
@@ -97,3 +104,86 @@ def test_temperature_scaler_fit_and_recalibration(tmp_path):
     scaler.save(save_file)
     loaded_scaler = TemperatureScaler.load(save_file)
     assert loaded_scaler.temperature == pytest.approx(scaler.temperature, abs=1e-5)
+
+
+# ---------------------------------------------------------------------------
+# temp_bucket (laya-mlx alignment)
+# ---------------------------------------------------------------------------
+
+
+def test_temp_bucket_choice_k2():
+    assert temp_bucket(0, 2) == "choice:2"
+
+
+def test_temp_bucket_choice_k3():
+    assert temp_bucket(0, 3) == "choice:3-5"
+
+
+def test_temp_bucket_choice_k5():
+    assert temp_bucket(0, 5) == "choice:3-5"
+
+
+def test_temp_bucket_choice_k6():
+    assert temp_bucket(0, 6) == "choice:6-10"
+
+
+def test_temp_bucket_choice_k10():
+    assert temp_bucket(0, 10) == "choice:6-10"
+
+
+def test_temp_bucket_choice_k11():
+    assert temp_bucket(0, 11) == "choice:11+"
+
+
+def test_temp_bucket_score():
+    assert temp_bucket(1, 4) == "score:3-5"
+
+
+def test_temp_bucket_noul():
+    assert temp_bucket(2, 2) == "noul:2"
+
+
+def test_temp_bucket_unknown_qtype_defaults_to_choice():
+    # qtype 99 is not in the _QTYPE_NAMES map -> falls back to "choice"
+    result = temp_bucket(99, 3)
+    assert result == "choice:3-5"
+
+
+# ---------------------------------------------------------------------------
+# clamp_temperature (laya-mlx alignment)
+# ---------------------------------------------------------------------------
+
+
+def test_clamp_temperature_within_bounds():
+    assert clamp_temperature(1.0) == pytest.approx(1.0, abs=1e-9)
+    assert clamp_temperature(2.5) == pytest.approx(2.5, abs=1e-9)
+
+
+def test_clamp_temperature_below_min():
+    # Values below TEMP_MIN (0.5) are raised to TEMP_MIN
+    result = clamp_temperature(0.1)
+    assert result == pytest.approx(TEMP_MIN, abs=1e-9)
+
+
+def test_clamp_temperature_above_max():
+    result = clamp_temperature(100.0)
+    assert result == pytest.approx(TEMP_MAX, abs=1e-9)
+
+
+def test_clamp_temperature_nan_returns_one():
+    import math
+    assert clamp_temperature(math.nan) == pytest.approx(1.0, abs=1e-9)
+
+
+def test_clamp_temperature_inf_returns_one():
+    import math
+    assert clamp_temperature(math.inf) == pytest.approx(1.0, abs=1e-9)
+
+
+def test_clamp_temperature_non_numeric_returns_one():
+    assert clamp_temperature("hot") == pytest.approx(1.0, abs=1e-9)
+
+
+def test_clamp_temperature_custom_bounds():
+    assert clamp_temperature(3.0, lo=4.0, hi=8.0) == pytest.approx(4.0, abs=1e-9)
+    assert clamp_temperature(10.0, lo=4.0, hi=8.0) == pytest.approx(8.0, abs=1e-9)

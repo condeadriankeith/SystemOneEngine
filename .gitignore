@@ -17,3 +17,6 @@ wheels/
 *.safetensors
 .env
 .env.*
+
+# External references and benchmarks
+laya-mlx/

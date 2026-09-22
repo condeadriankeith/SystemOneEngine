@@ -4,13 +4,33 @@ Provides:
 - compute_ece: Expected Calibration Error computation across equal-width confidence bins.
 - TemperatureScaler: Post-hoc temperature optimization (NLL minimization) to ensure
   the PRD requirement of ECE <= 0.05.
+- temp_bucket: Encode (qtype_int, option_count) as a bucketed string key for
+  per-bucket temperature lookup (adapted from laya-mlx, Apache-2.0).
+- clamp_temperature: Guard usable temperature values to [TEMP_MIN, TEMP_MAX] so
+  over-fitted checkpoints cannot sharpen logits beyond a safe range.
 """
 
 import json
+import math
 from pathlib import Path
 from typing import Sequence
 import numpy as np
 from scipy.optimize import minimize_scalar
+
+# ---------------------------------------------------------------------------
+# Laya-aligned per-bucket temperature constants
+# (adapted from laya-mlx/laya_mlx/common.py — Apache-2.0)
+# ---------------------------------------------------------------------------
+
+# A fitted temperature below TEMP_MIN sharpens logits instead of softening them.
+# The upstream laya ``choice:11+`` bucket ships T=0.1006, which multiplies logits ~10×:
+# a 0.24 top-probability is published as 0.99 — a coin flip labelled a certainty.
+# No honest calibration sharpens this aggressively, so we refuse to apply it.
+TEMP_MIN: float = 0.5
+TEMP_MAX: float = 5.0
+
+# Mapping from internal qtype int to its string name (mirrors laya-mlx QTYPE_NAMES)
+_QTYPE_NAMES: dict[int, str] = {0: "choice", 1: "score", 2: "noul"}
 
 
 def compute_ece(
@@ -177,3 +197,54 @@ class TemperatureScaler:
         with open(filepath, "r", encoding="utf-8") as f:
             data = json.load(f)
         return cls(temperature=data["temperature"])
+
+
+# ---------------------------------------------------------------------------
+# Per-bucket temperature helpers (adapted from laya-mlx — Apache-2.0)
+# ---------------------------------------------------------------------------
+
+
+def temp_bucket(qtype: int, k: int) -> str:
+    """Encode a (qtype, option_count) pair as a bucketed temperature lookup key.
+
+    Buckets match the laya-mlx convention so that per-option-count calibration
+    data from laya checkpoints can be reused directly:
+
+        "choice:2", "choice:3-5", "choice:6-10", "choice:11+"
+        "score:2",  "score:3-5",  "score:6-10",  "score:11+"
+        "noul:2"    (boolean always has k=2)
+
+    Args:
+        qtype: Integer question type (0=choice, 1=score, 2=noul/boolean).
+        k: Number of options / score levels.
+
+    Returns:
+        str: Bucket key string, e.g. ``"choice:11+"``.
+    """
+    size_label = "2" if k <= 2 else "3-5" if k <= 5 else "6-10" if k <= 10 else "11+"
+    type_name = _QTYPE_NAMES.get(int(qtype), "choice")
+    return f"{type_name}:{size_label}"
+
+
+def clamp_temperature(t: float, lo: float = TEMP_MIN, hi: float = TEMP_MAX) -> float:
+    """Clamp a temperature value to the safe range [lo, hi].
+
+    Falls back to 1.0 (identity scaling) if ``t`` is not a finite number.
+    This prevents over-fitted checkpoint temperatures from sharpening logits
+    beyond what an honest calibration would require (see TEMP_MIN docstring).
+
+    Args:
+        t: Raw temperature value to clamp.
+        lo: Lower bound (default TEMP_MIN = 0.5).
+        hi: Upper bound (default TEMP_MAX = 5.0).
+
+    Returns:
+        float: Clamped temperature in [lo, hi], or 1.0 if t is non-finite.
+    """
+    try:
+        t = float(t)
+    except (TypeError, ValueError):
+        return 1.0
+    if not math.isfinite(t):
+        return 1.0
+    return min(hi, max(lo, t))

@@ -310,3 +310,97 @@ class OllamaSystemOneAdapter:
         for k in keys[1:]:
             dist[k] = rem_mass
         return dist
+
+    # -----------------------------------------------------------------------
+    # Laya-MLX Aligned API — dict-in dict-out (no Pydantic overhead)
+    # -----------------------------------------------------------------------
+
+    def system_one(self, state: Any, questions: dict, **_kwargs: Any) -> dict:
+        """Evaluate multiple heterogeneous questions over a shared state.
+
+        Unified dict-in dict-out interface aligned with laya-mlx's
+        ``agent.system_one(state, questions)`` and ``agent.predict()`` APIs.
+
+        Internally translates the laya-mlx question schema into existing
+        Pydantic models and delegates to evaluate_choice / evaluate_boolean /
+        evaluate_score to avoid duplicating Ollama prompt logic.
+
+        Args:
+            state: Input state — string, dict, list, or None. Serialized to str if needed.
+            questions: Dict mapping question IDs to question definition dicts:
+                {"type": "choice"|"score"|"boolean"|"noul", "instructions": str, "criteria": ...}
+            **_kwargs: Ignored extra keywords (for API compatibility with Router).
+
+        Returns:
+            dict: Mapping question ID to result dict with keys:
+                - For choice: {"choice": str, "probabilities": dict, "confidence": float}
+                - For score:  {"score": float, "legend": dict, "probabilities": dict, "confidence": float}
+                - For boolean:{"confirmed": bool, "probability": float, "confidence": float}
+        """
+        import json as _json
+
+        if not isinstance(questions, dict) or not questions:
+            return {}
+
+        # Serialize state once; Ollama prompts take a context string
+        if isinstance(state, str):
+            context = state
+        elif state is None:
+            context = ""
+        else:
+            context = _json.dumps(state, ensure_ascii=False)
+
+        result: dict = {}
+
+        for qid, qdef in questions.items():
+            if not isinstance(qdef, dict):
+                continue
+
+            kind = qdef.get("type", "")
+            instructions = str(qdef.get("instructions", ""))
+            criteria = qdef.get("criteria")
+
+            # Combine context + instructions as context for Pydantic models
+            combined_context = f"{instructions}\n\n{context}".strip() if instructions else context
+
+            if kind == "choice":
+                if not isinstance(criteria, (dict, list)) or not criteria:
+                    continue
+                crit_dict: dict = (
+                    criteria
+                    if isinstance(criteria, dict)
+                    else {label: label for label in criteria}
+                )
+                req = ChoiceRequest(context=combined_context, criteria=crit_dict)
+                resp = self.evaluate_choice(req)
+                result[qid] = {
+                    "choice": resp.choice,
+                    "probabilities": resp.probabilities,
+                    "confidence": resp.confidence,
+                }
+
+            elif kind == "score":
+                if not isinstance(criteria, list) or not criteria:
+                    continue
+                req = ScoreRequest(context=combined_context, criteria=criteria)
+                resp = self.evaluate_score(req)
+                result[qid] = {
+                    "score": resp.score,
+                    "legend": resp.legend,
+                    "probabilities": resp.probabilities,
+                    "confidence": resp.confidence,
+                }
+
+            elif kind in ("boolean", "noul"):
+                req = BooleanRequest(context=combined_context)
+                resp = self.evaluate_boolean(req)
+                result[qid] = {
+                    "confirmed": resp.confirmed,
+                    "probability": resp.probability,
+                    "confidence": resp.confidence,
+                }
+
+        return result
+
+    # laya-mlx API alias: agent.predict(state, questions)
+    predict = system_one
