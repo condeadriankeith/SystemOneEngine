@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "system-one": {
+      "command": "uv",
+      "args": ["run", "python", "-m", "system_one_engine.server.mcp_server"],
+      "env": {
+        "SYSTEM_ONE_DEVICE": "cpu"
+      }
+    }
+  }
+}

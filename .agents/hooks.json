@@ -1,0 +1,25 @@
+{
+  "system-one-safety-gate": {
+    "PreToolUse": [
+      {
+        "matcher": "run_command|write_to_file|replace_file_content|multi_replace_file_content",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run python -m system_one_engine.agent.hook_interceptor",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  },
+  "system-one-stop-verifier": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "uv run python -m system_one_engine.agent.stop_verifier",
+        "timeout": 20
+      }
+    ]
+  }
+}

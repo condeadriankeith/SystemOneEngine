@@ -4,6 +4,135 @@ All changes, additions, edits, architectural decisions, and removals in this rep
 
 ---
 
+## Log Entry: 2026-09-24 — GitHub Upstream Publication & Repository Synchronization (COMPLETED)
+
+### Rationale
+Synchronize local commits and Antigravity IDE integration subsystems with the primary remote repository `condeadriankeith/SystemOneEngine` on GitHub using authenticated PAT credentials.
+
+### Components Synchronized
+1. **Antigravity IDE Integration:**
+   - `.agents/hooks.json` & `.agents/mcp_config.json`: Live lifecycle hooks and stdio MCP server for Antigravity IDE.
+   - `.agents/skills/fast-browser-check/SKILL.md`: Dynamic indexed DOM action space browser verification skill.
+   - `src/system_one_engine/agent/hook_interceptor.py`: Sub-0.5ms PreToolUse safety interceptor gating destructive actions.
+   - `src/system_one_engine/agent/stop_verifier.py`: Independent outcome verifier preventing regression hallucinations.
+   - `src/system_one_engine/server/mcp_server.py`: JSON-RPC 2.0 stdio MCP server exposing System One decision primitives.
+   - `tests/test_hook_interceptor.py`, `tests/test_stop_verifier.py`, `tests/test_mcp_server.py`: 18 new automated unit tests.
+2. **Agent & External Reference Subsystems:**
+   - `9b10b98 feat(agent)`: Autonomous Computer-Use & OS task automation agent subsystem with sub-20ms reflexes and safety guardrails.
+   - `.gitignore`: Isolated `laya-mlx/` and `jev-ultrafast/` external reference trees.
+
+---
+
+## Log Entry: 2026-09-24 — Antigravity IDE Integration: Dual-Process Hooks, Stdio MCP Server & Stop Verification (COMPLETED)
+
+### Rationale
+Embed the System One Engine directly into the **Antigravity IDE** developer workflow to establish a true **Dual-Process (System 1 + System 2)** AI development environment. 
+Standard agentic IDE workflows incur 1.5–4.5s latency and high token consumption by dispatching large autoregressive models for routine command evaluations, safety approvals, and repetitive UI checks. This integration implements:
+1. **Sub-5ms PreToolUse Safety Interception:** Intercepts Antigravity tool calls (`run_command`, `write_to_file`, `replace_file_content`) via `.agents/hooks.json` and evaluates safety via System One Boolean guardrails, blocking destructive commands (`rm -rf`, disk formats, database drops) instantly without cloud token costs.
+2. **Independent Stop Verification:** Enforces real-world outcome verification on agent completion (`Stop` hook in `.agents/hooks.json`), blocking premature loop completion if syntax errors or test regressions exist.
+3. **High-Speed Stdio MCP Server:** Exposes System One decision primitives (`system_one_choice`, `system_one_score`, `system_one_boolean`, `system_one_safety_check`, `system_one_shortlist`) directly over the Model Context Protocol in `.agents/mcp_config.json`.
+4. **Ultrafast Web & UI Verification Skill:** Introduces `.agents/skills/fast-browser-check/SKILL.md` leveraging `snapshot.js` and the `jev-ultrafast` indexed DOM action space for sub-200ms browser checks.
+
+### Files Changed
+
+| File | Change | Reason |
+|---|---|---|
+| `src/system_one_engine/agent/hook_interceptor.py` | **NEW** | CLI interceptor for Antigravity IDE `PreToolUse` lifecycle hooks (<0.5ms safety check) |
+| `src/system_one_engine/agent/stop_verifier.py` | **NEW** | Independent outcome verifier for Antigravity `Stop` hooks preventing regression hallucinations |
+| `src/system_one_engine/server/mcp_server.py` | **NEW** | Stdio MCP JSON-RPC 2.0 server exposing System One decision primitives to the IDE |
+| `.agents/hooks.json` | **NEW** | Antigravity IDE lifecycle hook declaration for PreToolUse and Stop events |
+| `.agents/mcp_config.json` | **NEW** | Workspace MCP configuration registering `system-one` as a local stdio MCP server |
+| `.agents/skills/fast-browser-check/SKILL.md` | **NEW** | Antigravity agent skill for sub-second UI verification using indexed DOM snapshots |
+| `tests/test_hook_interceptor.py` | **NEW** | 6 unit tests covering destructive command denial, safe pass-through, and path guards |
+| `tests/test_stop_verifier.py` | **NEW** | 5 unit tests covering clean stops, syntax error blocking, and test regression gating |
+| `tests/test_mcp_server.py` | **NEW** | 7 unit tests covering JSON-RPC handshake, tool listing, choice, score, safety, and shortlist |
+
+### Empirical Verification Results
+- **Full Test Suite:** `182 passed, 1 skipped, 13 warnings in 19.98s` (zero regressions across all 183 collected test items).
+- **Live Lifecycle Hook Interception (Demonstrated in IDE):**
+  - When a destructive command (`rm -rf /`) was dispatched to `run_command`, the Antigravity hook runner actively executed `system-one-safety-gate` and hard blocked the execution in real-time with:
+    `tool call denied with reason: SystemOne Safety Guardrail Block: Command matches destructive safety filter: '\brm\s+-[rf]{1,2}\s+[/~*]'`.
+  - When safe dev commands (`git status`, `python --version`) were tested, the interceptor returned `{"decision": "allow", "reason": "Cleared by SystemOne Guardrail (confidence: 99.0%)"}` in **< 0.5 ms**.
+- **Live Stdio MCP Handshake:**
+  - Initialized with `{"protocolVersion": "2024-11-05", "capabilities": {"tools": {"listChanged": false}}, "serverInfo": {"name": "system-one-engine", "version": "0.3.0"}}`.
+- **Latency Budget:** All hook evaluations execute strictly within the **< 5 ms budget** on laptop CPU.
+
+---
+
+## Log Entry: 2026-09-23 — External Reference Integration: Browser-Use / Jev-Ultrafast (COMPLETED)
+
+### 1. Ingestion & Local Setup
+- **Action:** Cloned `https://github.com/browser-use/jev-ultrafast.git` into [`jev-ultrafast/`](file:///c:/Users/conde/OneDrive/Desktop/SystemOneEngine/jev-ultrafast).
+- **Target Repository Details:**
+  - Upstream: `browser-use/jev-ultrafast` (Commit on branch `main`).
+  - Architecture: Ultra-fast, low-cost browser agent combining a dynamic indexed action space, single-round-trip speculative fan-out (TypeSafe System One decision heads), and decoupled small LLM text generation (System 2). Demonstrates end-to-end task completion (e.g., Google Flights in 7.07s at 1× speed with 101 CDP calls vs. 1,092 standard calls).
+- **Version Control Guardrails:**
+  - Added `jev-ultrafast/` to [`.gitignore`](file:///c:/Users/conde/OneDrive/Desktop/SystemOneEngine/.gitignore) to preserve the clone as an isolated external reference repository without polluting the `SystemOneEngine` git index.
+
+### 2. Pytest Test Isolation & Verification
+- **Isolation Check:** Verified that `[tool.pytest.ini_options]` in [`pyproject.toml`](file:///c:/Users/conde/OneDrive/Desktop/SystemOneEngine/pyproject.toml) restricts test discovery to `testpaths = ["tests"]`.
+- **Baseline Verification Result (164 Passed, 1 Skipped):**
+  ```text
+  ============================= test session starts =============================
+  platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0
+  rootdir: C:\Users\conde\OneDrive\Desktop\SystemOneEngine
+  configfile: pyproject.toml
+  testpaths: tests
+  plugins: anyio-4.15.1, asyncio-1.4.0
+  ================ 164 passed, 1 skipped, 13 warnings in 51.26s =================
+  ```
+
+### 3. Core Architectural Principles & Algorithmic Patterns Learned
+
+#### A. Dynamic Indexed Action Space (No Coordinates, No Hallucinated Selectors)
+- Every page observation emits a numbered, linearized control table:
+  ```text
+  [1] button    Change ticket type · Round trip
+  [2] combobox  Where from?        · San Francisco
+  [3] combobox  Where to?          · empty
+  [4] textbox   Departure          · empty
+  ```
+- **Guaranteed Validity:** The model selects integer candidate indices (`1`, `2`, `3`...). It never generates raw CSS/XPath selectors, pixel coordinates, or executable JavaScript code.
+
+#### B. Single-Round-Trip Speculative Fan-Out (`operation` + `target` Heads)
+- Evaluates operation selection and candidate target heads concurrently in **one network call** using TypeSafe's System One endpoint (`/v1/systemone`):
+  - Head 1 (`operation`): `CLICK`, `TYPE_TEXT`, `SELECT`, `SCROLL_UP`, `SCROLL_DOWN`, `WAIT`, `DONE`, `BLOCKED`.
+  - Head 2 (`click_target`): Choice over clickable element indices.
+  - Head 3 (`type_text_target`): Choice over editable field indices.
+  - Head 4 (`select_target`): Choice over dropdown options (`element_idx:option_idx`).
+- **Zero-Waste Execution:** Only the target head matching the chosen `operation` is executed. The unused target heads are discarded without executing secondary network round trips.
+
+#### C. Decoupled Dual-Process Text Generation (System 1 + System 2 Handoff)
+- Fast non-autoregressive decision heads (System 1) handle all spatial, operational, and structural decisions in sub-200ms.
+- An autoregressive LLM (System 2, e.g. Mercury-2.5 / DeepSeek) is invoked **only** when `operation == "TYPE_TEXT"`.
+- Text helper receives isolated field context (`goal`, target field label/role, visible context, and recent actions) and returns strict JSON `{"text": "Zurich"}`.
+- Prevents wasting LLM token budgets and latency on routine clicks, scrolls, waits, and dropdown selects.
+
+#### D. Atomic Direct DOM Snapshot & Node Identity (`snapshot.js`)
+- Uses `window.__jevFast = {ids: new WeakMap(), nodes: new Map(), next: 1}` inside the browser runtime to map integer action IDs to live DOM node references.
+- Reads visible interactive controls, accessible names (via `aria-labelledby`, `aria-label`, labels, alt, placeholders), bounding boxes, and visible text in **one atomic browser CDP call** (`Runtime.evaluate`).
+- Caps text at 6,000 characters and filters out invisible, disabled, inert, password, and hidden inputs.
+
+#### E. Pre-Execution Freshness & Occlusion Guardrails
+- **Page Marker & Fingerprint:** Tracks `pageKey` (URL, scroll position, viewport dimensions, input values, disabled flags) and a content hash marker.
+- **Node-Level Guards:** Prior to dispatching mouse/keyboard events, checks that the target node is still connected, visible, not disabled, and not occluded via `document.elementFromPoint(x, y)`.
+- If the page mutated or an element is covered, a `StalePage` exception is raised, triggering a fresh atomic observation without re-firing mutations or double-clicking.
+
+#### F. Zero-Screenshot Decision Loop
+- Decisions are made entirely on structured, semantic text and control tables. Screenshots are strictly optional for post-hoc debugging, recording, and inspection, eliminating multi-megabyte VLM payloads.
+
+### 4. Roadmap & Integration Opportunities for SystemOneEngine
+1. **Web Driver Extension (`SystemOneBrowserAgent`):**
+   - Extend `src/system_one_engine/agent/driver.py` with a `CDPBrowserDriver` that uses `snapshot.js` and Chrome DevTools Protocol.
+2. **Local INT8 ONNX Reflex Powering `operation` + `target` Heads:**
+   - Replace external TypeSafe API calls with our local sub-3ms INT8 ONNX encoder and `DynamicChoiceHead` / `DecideRequest` speculative fan-out.
+3. **Guardrail Harmonization:**
+   - Combine `jev-ultrafast`'s element-level occlusion/freshness guards with `SystemOneEngine`'s sub-5ms destructive command safety interceptors (`SafetyGuardrail`).
+4. **System 2 Ollama Generative Text Handoff:**
+   - Route `TYPE_TEXT` operations to our local Ollama `qwen2.5-coder` with zero-preamble steering, achieving a 100% offline, private, ultra-fast web agent.
+
+---
+
 ## Log Entry: 2026-09-22 — Autonomous Computer-Use & OS Task Automation Agent Subsystem
 
 ### Rationale
