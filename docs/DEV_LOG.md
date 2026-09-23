@@ -23,8 +23,11 @@ Synchronize local commits and Antigravity IDE integration subsystems with the pr
 
 ### Verification Record
 - **Push Execution:** `c019524..44c1769 main -> main` pushed successfully to `https://github.com/condeadriankeith/SystemOneEngine.git`.
-- **Remote Status:** `origin/main` is in 100% parity with local `main` at `44c1769`.
+- **Remote Status:** `origin/main` is in 100% parity with local `main` at `e64f761`.
 - **Regression Status:** 182 unit & integration tests passing across complete engine test suite.
+- **Repository Metadata Updated:**
+  - Description: *High-performance, calibrated non-autoregressive decision engine (<4ms CPU) powering dual-process agent reflexes, Antigravity IDE lifecycle hooks, MCP server, and OS automation.*
+  - Topics: `['ai', 'calibration', 'decision-engine', 'fastapi', 'local-llm', 'onnx', 'qwen', 'system-one', 'system-two', 'agent', 'antigravity-ide', 'computer-use', 'mcp', 'mcp-server', 'reflex-agents', 'safety-guardrails']`.
 
 ---
 
